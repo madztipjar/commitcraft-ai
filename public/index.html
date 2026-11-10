@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CommitCraft AI — diff in, polished PR out</title>
+<style>
+  :root { --bg:#0b1020; --card:#141a30; --ink:#e8ecf8; --mut:#93a0c2; --acc:#ff8a3d; --acc2:#3ddc97; --line:#26304f; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: ui-sans-system, system-ui, "Segoe UI", Roboto, sans-serif; background: radial-gradient(1200px 600px at 70% -10%, #1c2447 0%, var(--bg) 55%); color: var(--ink); }
+  .wrap { max-width: 1060px; margin: 0 auto; padding: 28px 18px 60px; }
+  header { display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  .logo { width:44px; height:44px; border-radius:12px; background: linear-gradient(135deg, var(--acc), #ffb03d); display:grid; place-items:center; font-size:24px; }
+  h1 { font-size: 28px; margin:0; letter-spacing:.2px; }
+  h1 span { color: var(--acc); }
+  .tag { color: var(--mut); margin: 2px 0 0; font-size: 14px; }
+  .badge { margin-left:auto; font-size:12px; color: var(--acc2); border:1px solid var(--line); padding:6px 10px; border-radius:999px; background:#0e1430; }
+  .grid { display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-top:22px; }
+  @media (max-width: 860px){ .grid{ grid-template-columns:1fr; } }
+  .card { background: var(--card); border:1px solid var(--line); border-radius:16px; padding:16px; }
+  label { font-size:13px; color:var(--mut); display:block; margin-bottom:8px; }
+  textarea { width:100%; min-height:300px; resize:vertical; background:#0c1122; color:var(--ink); border:1px solid var(--line); border-radius:12px; padding:12px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size:12.5px; line-height:1.5; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+  button { cursor:pointer; border:1px solid var(--line); background:#1a2140; color:var(--ink); padding:10px 14px; border-radius:10px; font-size:14px; }
+  button.primary { background: linear-gradient(135deg, var(--acc), #ff6a3d); border:none; color:#181008; font-weight:700; }
+  button:hover { filter: brightness(1.12); }
+  button:disabled { opacity:.55; cursor:wait; }
+  pre { white-space: pre-wrap; word-break: break-word; background:#0c1122; border:1px solid var(--line); border-radius:12px; padding:14px; min-height:300px; margin:0; font-size:13px; line-height:1.55; font-family: ui-monospace, Menlo, Consolas, monospace; }
+  .hint { color: var(--mut); font-size: 12.5px; margin-top: 10px; }
+  footer { color: var(--mut); font-size: 12.5px; margin-top: 26px; text-align:center; }
+  a { color: var(--acc); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">🛠️</div>
+    <div>
+      <h1>CommitCraft <span>AI</span></h1>
+      <p class="tag">Paste a git diff → get a Conventional Commits message, a PR description, and a review summary. Powered by the BharatCode model API.</p>
+    </div>
+    <div class="badge" id="mode">checking engine…</div>
+  </header>
+
+  <div class="grid">
+    <div class="card">
+      <label for="diff">Your git diff (run <code>git diff</code> or <code>git show</code> and paste the output)</label>
+      <textarea id="diff" spellcheck="false" placeholder="diff --git a/src/auth.js b/src/auth.js&#10;--- a/src/auth.js&#10;+++ b/src/auth.js&#10;@@ -10,6 +10,12 @@&#10; ..."></textarea>
+      <div class="row">
+        <button class="primary" data-kind="commit">✍️ Commit message</button>
+        <button data-kind="pr">📄 PR description</button>
+        <button data-kind="review">🔍 Review summary</button>
+        <button id="sample">Load sample diff</button>
+      </div>
+      <p class="hint">Every developer writes these by hand, dozens of times a week. CommitCraft turns a raw diff into review-ready text in one click.</p>
+    </div>
+    <div class="card">
+      <label>Result <span id="kindLabel"></span></label>
+      <pre id="out">Your generated text will appear here.</pre>
+      <div class="row">
+        <button id="copy">📋 Copy result</button>
+      </div>
+      <p class="hint" id="engineNote"></p>
+    </div>
+  </div>
+
+  <footer>Built for the <strong>BharatCode Build League</strong> · Model API: <code>https://bharatcode.ai/api/model/v1</code> · Works offline in local fallback mode when no API key is set.</footer>
+</div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const sample = [
+"diff --git a/src/auth/session.js b/src/auth/session.js",
+"--- a/src/auth/session.js",
+"+++ b/src/auth/session.js",
+"@@ -22,7 +22,19 @@ export function createSession(user) {",
+"   const token = sign({ sub: user.id });",
+"-  return { token, expires: Date.now() + 3600e3 };",
+"+  const expires = Date.now() + 3600e3;",
+"+  auditLog('session.created', { userId: user.id });",
+"+  return { token, expires, refreshToken: sign({ sub: user.id, typ: 'refresh' }, '7d') };",
+" }",
+"+",
+"+export function revokeSession(token) {",
+"+  return blocklist.add(token);",
+"+}",
+"diff --git a/tests/session.test.js b/tests/session.test.js",
+"new file mode 100644",
+"--- /dev/null",
+"+++ b/tests/session.test.js",
+"@@ -0,0 +1,12 @@",
+"+import { createSession, revokeSession } from '../src/auth/session.js';",
+"+",
+"+test('session includes a refresh token', () => {",
+"+  const s = createSession({ id: 'u1' });",
+"+  expect(s.refreshToken).toBeTruthy();",
+"+});",
+"+",
+"+test('revoked tokens are blocklisted', async () => {",
+"+  await revokeSession('tok');",
+"+});",
+].join("\n");
+
+$("#sample").onclick = () => { $("#diff").value = sample; };
+$("#copy").onclick = async () => { await navigator.clipboard.writeText($("#out").textContent); $("#copy").textContent = "✅ Copied"; setTimeout(()=>$("#copy").textContent="📋 Copy result", 1200); };
+
+fetch("/api/health").then(r => r.json()).then(h => {
+  $("#mode").textContent = "engine: " + h.mode;
+}).catch(() => { $("#mode").textContent = "engine: unavailable"; });
+
+document.querySelectorAll("button[data-kind]").forEach(btn => {
+  btn.onclick = async () => {
+    const kind = btn.dataset.kind;
+    const input = $("#diff").value;
+    if (!input.trim()) { $("#out").textContent = "Paste a git diff first (or load the sample)."; return; }
+    document.querySelectorAll("button[data-kind]").forEach(b => b.disabled = true);
+    $("#out").textContent = "Generating…";
+    try {
+      const r = await fetch("/api/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind, input }) });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || "request failed");
+      $("#out").textContent = data.text;
+      $("#kindLabel").textContent = "— " + kind;
+      $("#engineNote").textContent = "Engine: " + data.mode;
+    } catch (e) {
+      $("#out").textContent = "Error: " + e.message;
+    } finally {
+      document.querySelectorAll("button[data-kind]").forEach(b => b.disabled = false);
+    }
+  };
+});
+</script>
+</body>
+</html>
