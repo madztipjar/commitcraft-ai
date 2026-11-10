@@ -1,0 +1,29 @@
+CommitCraft AI
+==============
+
+Project : CommitCraft AI — diff in, polished PR out
+Event   : BharatCode Build League (build with AI, win Rs.10,000)
+Builder : madztipjar (independent builder)
+
+What it does
+------------
+CommitCraft AI is a developer tool powered by the BharatCode model API.
+Paste the output of `git diff` and it generates, in one click:
+  1. a Conventional Commits message,
+  2. a complete GitHub pull-request description, and
+  3. a reviewer-style summary with concrete risks to verify.
+
+How it uses BharatCode
+----------------------
+All AI generation goes through BharatCode's OpenAI-compatible model API:
+  Base URL : https://bharatcode.ai/api/model/v1
+  Endpoint : POST /chat/completions
+  Models   : qwen-3.8-27b (default), deepseek-v4.1-flash
+  Auth     : BHARATCODE_API_KEY environment variable
+If no key is configured, a built-in local analysis engine produces the
+same artifacts from the diff itself, so the tool works fully offline.
+
+Run it
+------
+  npm start          # http://localhost:4173
+  # optional: BHARATCODE_API_KEY=<key> npm start
